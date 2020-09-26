@@ -27,21 +27,30 @@ class LClockApp():
     def __init__(self):
         super().__init__()
         # self.meter = BatteryMeter()
-        self.win = lv.win(wasp.watch.tile_view)
-        self.win.set_title("LVGL Clock")
-        self.label_h = lv.label(lv.btn(self.win))
+        self.cont = lv.cont(wasp.watch.tile_view)
+        # self.win.set_title("LVGL Clock")
+        btn = lv.btn(self.cont)
+        btn.set_y(10)
+        btn.set_x(10)
+        # So the button can be used to swipe
+        wasp.watch.tile_view.add_element(btn)
+        self.label_h = lv.label(btn)
         self.label_h.set_text("H")
-        btn_m = lv.btn(self.win)
+        btn_m = lv.btn(self.cont)
+        wasp.watch.tile_view.add_element(btn_m)
         self.label_m = lv.label(btn_m)
         btn_m.set_y(70)
+        btn_m.set_x(10)
         self.label_m.set_text("M")
-        btn_s = lv.btn(self.win)
+        btn_s = lv.btn(self.cont)
+        wasp.watch.tile_view.add_element(btn_s)
         self.label_s = lv.label(btn_s)
         btn_s.set_y(130)
-        self.label_s.set_text("S")                
+        btn_s.set_x(10)
+        self.label_s.set_text("S")
         # self.notifier = wasp.widgets.StatusBar()
         self.on_screen = None
-        self.lv_main = self.win
+        self.lv_main = self.cont
 
     def foreground(self):
         """Activate the application."""

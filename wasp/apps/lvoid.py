@@ -17,12 +17,26 @@ class LVoidApp():
 
     def __init__(self, title):
         super().__init__()
-        self.win = lv.win(wasp.watch.tile_view)
-        self.win.set_title(title)
-        self.title = title
-        self.label_h = lv.label(lv.btn(self.win))
-        self.label_h.set_text("V")
-        self.lv_main = self.win
+        self.cont = lv.cont(wasp.watch.tile_view)
+        # self.win.set_title(title)
+        # self.title = title
+        btn = lv.btn(self.cont)
+        btn.set_y(10)
+        btn.set_x(10)
+        # So the button can be used to swipe
+        wasp.watch.tile_view.add_element(btn)
+        self.label_h = lv.label(btn)
+        self.label_h.set_text(title)
+
+        btn2 = lv.btn(self.cont)
+        btn2.set_y(100)
+        btn2.set_x(10)
+        # So the button can be used to swipe
+        wasp.watch.tile_view.add_element(btn2)
+        self.label_h2 = lv.label(btn2)
+        self.label_h2.set_text(title)
+
+        self.lv_main = self.cont
         self.count = 1
 
     def foreground(self):
@@ -50,6 +64,6 @@ class LVoidApp():
     def update(self):
         """Update the display (if needed).
         """
-        self.label_h.set_text(str(self.count))
+        self.label_h2.set_text(str(self.count))
         print("void", self.title, self.count)
         return True

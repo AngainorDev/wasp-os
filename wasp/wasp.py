@@ -125,7 +125,7 @@ class Manager():
         self.watch.tile_view.set_event_cb(self.tv_event)
 
     def tv_event(self, item, event):
-        print("tvevent", item, event)
+        print("tvevent", item, ":", event)
 
     def register(self, app, quick_ring=False):
         """Register an application with the system.
@@ -145,8 +145,9 @@ class Manager():
             self.watch.tile_view.add_element(app.lv_main)
         except Exception as e:
             print("add_element", e)
-        app.lv_main.set_size(240, 240)
-        app.lv_main.set_pos(row * 240, col * 240)
+        # todo: handle padding via styles instead
+        app.lv_main.set_size(220, 220)
+        app.lv_main.set_pos(row * 240 + 10, col * 240 + 10)
         if 'set_scroll_propagation' in dir(app.lv_main):
             app.lv_main.set_scroll_propagation(True)
 
