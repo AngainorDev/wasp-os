@@ -32,6 +32,9 @@ from apps.pager import NotificationApp
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
+import lvgl as lv
+
+
 class EventType():
     """Enumerated interface actions.
 
@@ -87,34 +90,65 @@ class Manager():
         self.network_service = Wifi()
         self.event_mask = 0
         self.awake = asyncio.Event()
+        self.tv_apps = []
 
     def init_apps(self):
         from apps.settings import SettingsApp
+        #from apps.binclock import BinClockApp
         from apps.clock import ClockApp
-        from apps.flashlight import FlashlightApp
+        from apps.lclock import LClockApp
+        from apps.lvoid import LVoidApp
+        #from apps.flashlight import FlashlightApp
         # from apps.steps import StepCounterApp
-        from apps.stopwatch import StopwatchApp
-        from apps.testapp import TestApp
+        #from apps.stopwatch import StopwatchApp
+        #from apps.testapp import TestApp
 
-        self.register(ClockApp(), True)
+        #self.register(BinClockApp(), True)
+        #self.register(LClockApp(), True)
         #self.register(StepCounterApp(), True)
-        self.register(StopwatchApp(), True)
+        #self.register(StopwatchApp(), True)
         #self.register(HeartApp(), True)
 
-        self.register(FlashlightApp(), False)
-        self.register(SettingsApp(), False)
-        self.register(TestApp(), False)
+        #self.register(FlashlightApp(), False)
+        #self.register(SettingsApp(), False)
+        #self.register(TestApp(), False)
+
+        self.tv_apps = [[None]*2 for row in range(2)]
+        valid_pos = [{'x': 0, 'y': 0}, {'x': 1, 'y': 0}, {'x': 0, 'y': 1}, {'x': 1, 'y': 1}]
+        self.watch.tile_view.set_valid_positions(valid_pos, 4)
+
+        self.tv_register(LClockApp(), 0, 0)
+        self.tv_register(LVoidApp('0,1'), 0, 1)
+        self.tv_register(LVoidApp('1,0'), 1, 0)
+        self.tv_register(LVoidApp('1,1'), 1, 1)
+
+        self.watch.tile_view.set_event_cb(self.tv_event)
+
+    def tv_event(self, item, event):
+        print("tvevent", item, event)
 
     def register(self, app, quick_ring=False):
         """Register an application with the system.
 
-        :param object app: The application to regsister
+        :param object app: The application to register
         """
-        if quick_ring == True:
+        if quick_ring is True:
             self.quick_ring.append(App(app))
         else:
             self.launcher_ring.append(App(app))
             self.launcher_ring.sort(key=lambda x: x.NAME)
+
+    def tv_register(self, app, row=0, col=0):
+        """Register an app in the tile_view"""
+        self.tv_apps[row][col] = App(app)
+        try:
+            self.watch.tile_view.add_element(app.lv_main)
+        except Exception as e:
+            print("add_element", e)
+        app.lv_main.set_size(240, 240)
+        app.lv_main.set_pos(row * 240, col * 240)
+        if 'set_scroll_propagation' in dir(app.lv_main):
+            app.lv_main.set_scroll_propagation(True)
 
     @property
     def brightness(self):
@@ -126,6 +160,23 @@ class Manager():
         self._brightness = value
         self.watch.backlight.set(value)
 
+    def lv_switch(self, row, col):
+        app = self.tv_apps[row][col]
+        if app is None:
+            print("None", row, col)
+        if self.app:
+            if 'background' in dir(self.app):
+                self.app.background()
+        else:
+            # System start up...
+            self.watch.tft.display_wakeup()
+            self.watch.backlight.set(self._brightness)
+
+        # Clear out any configuration from the old application
+        self.event_mask = 0
+        self.app = app
+        app.foreground()
+
     def switch(self, app):
         """Switch to the requested application.
         """
@@ -134,18 +185,20 @@ class Manager():
                 self.app.background()
         else:
             # System start up...
-            self.watch.display.poweron()
-            self.watch.display.mute(True)
+            #self.watch.display.poweron()
+            #self.watch.display.mute(True)
             self.watch.backlight.set(self._brightness)
+            # self.watch.tft.backlight_fade(self._brightness)
 
         # Clear out any configuration from the old application
         self.event_mask = 0
 
         self.app = app
-        self.watch.display.mute(True)
-        self.watch.drawable.reset()
+        #self.watch.display.mute(True)
+        #self.watch.drawable.reset()
+        #self.watch.lv.scr_load(app.scr)
         app.foreground()
-        self.watch.display.mute(False)
+        #self.watch.display.mute(False)
 
     def navigate(self, direction=None):
         """Navigate to a new application.
@@ -230,8 +283,8 @@ class Manager():
         self.log.debug("Sleep")
         self.watch.backlight.set(0)
         self.app.background()
-        self.watch.display.poweroff()
-        #self.watch.touch.sleep()
+        self.watch.tft.display_sleep()
+        # self.watch.touch.sleep() # Todo?
         self.network_service.sleep()
         self._charging = self.watch.axp.isChargeing()
 
@@ -241,10 +294,10 @@ class Manager():
         self.log.debug("wake: "+str(by_user))
         if by_user:
             self.awake.set()
-            self.watch.display.poweron()
+            self.watch.tft.display_wakeup()
             self.watch.backlight.set(self._brightness)
             self.app.foreground()
-            #self.watch.touch.wake()
+            # self.watch.touch.wake()  # Todo?
         else:
             await self.connect()
 
@@ -275,6 +328,7 @@ class Manager():
 
     def keep_awake(self):
         self.pms.keep_awake()
+        pass
 
     def _handle_touch(self, event):
         """Process a touch event.
@@ -309,13 +363,16 @@ class Manager():
         self.pms = PMS(self.blank_after)
         self.init_apps()
         if not self.app:
-            self.switch(self.quick_ring[0])
-        asyncio.create_task(self.connect())
+            lv.scr_load(self.watch.scr)
+            self.lv_switch(0,0)
+            #self.switch(self.quick_ring[0])
+        #asyncio.create_task(self.connect())
         self.pms.init()
         self.keep_awake()
         while True:
             gc.collect()
             gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+            print("free", gc.mem_free(), "alloc", gc.mem_alloc())
             await asyncio.sleep(5)
 
 
